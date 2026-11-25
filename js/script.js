@@ -4,7 +4,8 @@
 ========================================= */
 
 /* =========================================
-   1. NAVIGATION ELEMENTS
+   1. ELEMENT SELECTIONS
+   Same order as they appear in the HTML
 ========================================= */
 
 const menuToggle = document.getElementById("menu-toggle");
@@ -34,9 +35,11 @@ const printEstimateButton = document.getElementById("print-estimate");
    2. PROJECT SETTINGS
 ========================================= */
 
+// Illustrative assumption only, not a real engineering figure
 const SAVINGS_RATE = 0.2;
 const CURRENCY = "USD";
 
+// Holds the latest estimate so the PDF and print buttons can reuse it
 let currentEstimate = null;
 let isMenuOpen = false;
 
@@ -73,12 +76,14 @@ if (menuToggle && mainNav) {
     setMenuState(!isMenuOpen);
   });
 
+  // Close the menu after a link is chosen
   mainNav.querySelectorAll("a").forEach((link) => {
     link.addEventListener("click", () => {
       setMenuState(false);
     });
   });
 
+  // Click outside closes the menu (no overlay needed)
   document.addEventListener("click", (event) => {
     const clickedInsideMenu = mainNav.contains(event.target);
     const clickedToggle = menuToggle.contains(event.target);
@@ -94,6 +99,7 @@ if (menuToggle && mainNav) {
     }
   });
 
+  // Reset the menu when the screen grows to desktop size
   window.addEventListener("resize", () => {
     if (window.innerWidth > 950) {
       setMenuState(false);
@@ -199,6 +205,7 @@ const calculateSavings = (bill) => {
    8. UPDATE ESTIMATE REPORT
 ========================================= */
 
+// textContent keeps user input as plain text, so it can never run as HTML
 const updateEstimateReport = (customer, calculations) => {
   addressResult.textContent = customer.address;
 
@@ -239,6 +246,7 @@ const generateEstimate = (customer) => {
 
   clearFeedback();
 
+  // Respect visitors who prefer reduced motion
   estimateResult.scrollIntoView({
     behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
       ? "auto"
@@ -294,11 +302,25 @@ const downloadEstimatePDF = () => {
 
   const pageWidth = doc.internal.pageSize.getWidth();
 
+  // A4 height in mm, used to know when the current page is full
+  const pageHeight = doc.internal.pageSize.getHeight();
+
   const margin = 20;
 
   const contentWidth = pageWidth - margin * 2;
 
+  // Current vertical position on the page, in mm
   let y = 22;
+
+  // jsPDF never adds pages by itself, so anything drawn below the page
+  // edge is lost. This starts a new page when the next block will not fit.
+  const ensureSpace = (neededHeight) => {
+    if (y + neededHeight > pageHeight - margin) {
+      doc.addPage();
+
+      y = margin;
+    }
+  };
 
   const addText = (text, x, position, maxWidth = contentWidth) => {
     const lines = doc.splitTextToSize(String(text), maxWidth);
@@ -475,7 +497,9 @@ const downloadEstimatePDF = () => {
     y += 12;
   });
 
-  // Next steps
+  // Next steps, disclaimer and footer need about 70mm together.
+  // Reserving 80mm keeps them on one page instead of running off the edge.
+  ensureSpace(80);
 
   y += 5;
 
@@ -555,7 +579,7 @@ const downloadEstimatePDF = () => {
     { align: "right" },
   );
 
-  // Safe filename
+  // Safe filename built from the address (letters and numbers only)
 
   const filename =
     currentEstimate.address
@@ -592,9 +616,3 @@ if (printEstimateButton) {
     window.print();
   });
 }
-
-/* =========================================
-   14. END
-========================================= */
-
-console.log("Solace Commercial Solar initialized.");
